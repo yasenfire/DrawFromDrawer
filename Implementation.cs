@@ -40,7 +40,6 @@ namespace DrawFromDrawer
 		{
 			static void Postfix(Panel_Crafting __instance)
 			{
-                Melon<DrawFromDrawer>.Logger.Msg("Associated container is " + (associatedContainer is null ? "null" : "not null"));
                 if (associatedContainer is null) return;
 				CraftingRequirementQuantitySelect crqs = __instance.m_RequirementContainer.m_QuantitySelect;
 
@@ -55,12 +54,10 @@ namespace DrawFromDrawer
 					int inContainer = associatedContainer.GetNumGearWithName(rgi.m_Item.name);
 					int total = inInventory + inContainer;
 					int maximum = (int)Math.Floor((double)total / (double)rgi.m_Count);
-                    Melon<DrawFromDrawer>.Logger.Msg("Inventory: " + inInventory + ", container: " + inContainer + ", total: " + total + ", maximum: " + maximum);
                     maximums.Add(maximum);
 				}
 
 				crqs.m_Maximum = maximums.Min();
-                Melon<DrawFromDrawer>.Logger.Msg("crqs.m_Maximum: " + crqs.m_Maximum + ", maximums.Min(): " + maximums.Min());
             }
 		}
 
