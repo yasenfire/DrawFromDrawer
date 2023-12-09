@@ -5,7 +5,6 @@ using Il2Cpp;
 using Il2CppInterop;
 using Il2CppInterop.Runtime.Injection;
 using Il2CppTLD.Gear;
-using static Il2CppNodeCanvas.Tasks.Actions.Action_ShowPanel;
 
 namespace DrawFromDrawer
 {
@@ -19,7 +18,8 @@ namespace DrawFromDrawer
 
 	public class DrawerPatches
 	{
-		public static Container? associatedContainer;
+		public static Container? associatedContainerA;
+		public static Container? associatedContainerB;
 		public static Inventory? combinedInventory;
 
 		[HarmonyPatch(typeof(Panel_Crafting), nameof(Panel_Crafting.Enable), new[] { typeof(bool), typeof(bool) })]
@@ -29,7 +29,8 @@ namespace DrawFromDrawer
 			{
 				if (!enable)
 				{
-					associatedContainer = null;
+					associatedContainerA = null;
+					associatedContainerB = null;
 					combinedInventory = null;
 				}
 			}
@@ -40,7 +41,7 @@ namespace DrawFromDrawer
 		{
 			static void Postfix(Panel_Crafting __instance)
 			{
-                if (associatedContainer is null) return;
+                if (associatedContainerA is null) return;
 				CraftingRequirementQuantitySelect crqs = __instance.m_RequirementContainer.m_QuantitySelect;
 
 				BlueprintData bd = __instance.m_FilteredBlueprints[__instance.m_CurrentBlueprintIndex];
@@ -51,8 +52,9 @@ namespace DrawFromDrawer
                 foreach (BlueprintData.RequiredGearItem rgi in bd.m_RequiredGear)
 				{
 					int inInventory = playerInventory.GetNumGearWithName(rgi.m_Item.name);
-					int inContainer = associatedContainer.GetNumGearWithName(rgi.m_Item.name);
-					int total = inInventory + inContainer;
+					int inContainer = associatedContainerA.GetNumGearWithName(rgi.m_Item.name);
+					int inContainerB = associatedContainerB is not null ? associatedContainerB.GetNumGearWithName(rgi.m_Item.name) : 0;
+					int total = inInventory + inContainer + inContainerB;
 					int maximum = (int)Math.Floor((double)total / (double)rgi.m_Count);
                     maximums.Add(maximum);
 				}
@@ -67,7 +69,7 @@ namespace DrawFromDrawer
 			static void Prefix(WorkBench __instance)
 			{
 				GameObject wbgo = __instance.gameObject;
-				associatedContainer = wbgo.GetComponentInChildren<Container>();
+				associatedContainerA = wbgo.GetComponentInChildren<Container>();
 
 				Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
 
@@ -76,11 +78,39 @@ namespace DrawFromDrawer
 				{
 					combinedInventory.m_Items.Add(gi);
 				}
-				foreach (GearItemObject gi in associatedContainer.m_Items)
+				foreach (GearItemObject gi in associatedContainerA.m_Items)
 				{
 					combinedInventory.m_Items.Add(gi);
 				}
 			}
+		}
+
+		[HarmonyPatch(typeof(AmmoWorkBench), nameof(AmmoWorkBench.InteractWithWorkbench))]
+		internal class AmmoWorkBenchInteractWithWorkBenchPatch
+		{
+			static void Prefix(AmmoWorkBench __instance)
+			{
+                GameObject wbgo = __instance.gameObject;
+				Container[] containers = wbgo.transform.parent.gameObject.GetComponentsInChildren<Container>();
+				associatedContainerA = containers[0];
+				associatedContainerB = containers[1];
+
+                Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
+
+                combinedInventory = new Inventory();
+				foreach (GearItemObject gi in playerInventory.m_Items)
+				{
+                    combinedInventory.m_Items.Add(gi);
+                }
+                foreach (GearItemObject gi in associatedContainerA.m_Items)
+                {
+                    combinedInventory.m_Items.Add(gi);
+                }
+                foreach (GearItemObject gi in associatedContainerB.m_Items)
+                {
+                    combinedInventory.m_Items.Add(gi);
+                }
+            }
 		}
 
 		[HarmonyPatch(typeof(BlueprintData), nameof(BlueprintData.CanCraftBlueprint))]
@@ -108,17 +138,29 @@ namespace DrawFromDrawer
 		{
 			static void Prefix(string gearName, int numUnits, Inventory __instance)
 			{
-				if (associatedContainer is null) return;
+				if (associatedContainerA is null) return;
 				int gearInInventory = __instance.GetNumGearWithName(gearName);
-				int missing = numUnits - gearInInventory;
+                int missing = numUnits - gearInInventory;
 				if (missing <= 0) return;
 
 				while (missing > 0)
 				{
-					GearItem gi = associatedContainer.GetClosestMatchStackable(gearName, 0f);
+                    Il2CppSystem.Collections.Generic.List<GearItem> itemsA = new Il2CppSystem.Collections.Generic.List<GearItem>();
+                    associatedContainerA.GetItems(gearName, itemsA);
+                    Il2CppSystem.Collections.Generic.List<GearItem> itemsB = new Il2CppSystem.Collections.Generic.List<GearItem>();
+                    if (associatedContainerB is not null) associatedContainerB.GetItems(gearName, itemsB);
+
+                    if (itemsA.Count == 0 && itemsB.Count == 0) break;
+					GearItem gi = itemsA.Count > 0 ? itemsA[itemsA.Count - 1] : itemsB[itemsB.Count - 1];
 					if (gi is null) break;
-                    int numToRemove = Math.Min(missing, gi.m_StackableItem.m_Units);
-					if (numToRemove == gi.m_StackableItem.m_Units) associatedContainer.RemoveGear(gi);
+
+					int numToRemove = gi.m_StackableItem is not null ? Math.Min(missing, gi.m_StackableItem.m_Units) : 1;
+
+					if (gi.m_StackableItem is null || numToRemove == gi.m_StackableItem.m_Units)
+					{
+						if (itemsA.Count > 0) associatedContainerA.RemoveGear(gi);
+						else if (associatedContainerB is not null) associatedContainerB.RemoveGear(gi);
+					}
 					else gi.m_StackableItem.m_Units -= numToRemove;
 					missing -= numToRemove;
 				}
@@ -130,15 +172,16 @@ namespace DrawFromDrawer
 		{
 			static void Postfix(CraftingRequirementMaterial __instance, Panel_Crafting panel, BlueprintData bp, int requiredIndex, int quantity)
 			{
-				if (associatedContainer is null) return;
+				if (associatedContainerA is null) return;
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
 				BlueprintData.RequiredGearItem rgi = bp.m_RequiredGear[requiredIndex];
                 int inInventory = playerInventory.GetNumGearWithName(rgi.m_Item.name);
-                int inContainer = associatedContainer.GetNumGearWithName(rgi.m_Item.name);
-				int total = inInventory + inContainer;
+                int inContainer = associatedContainerA.GetNumGearWithName(rgi.m_Item.name);
+                int inContainerB = associatedContainerB is not null ? associatedContainerB.GetNumGearWithName(rgi.m_Item.name) : 0;
+                int total = inInventory + inContainer + inContainerB;
 				int requiredTotal = rgi.m_Count * quantity;
 
-				string tail = __instance.m_Display.mText.Split('/')[1];
+				string tail = __instance.m_Display.mText.Split("/")[1];
 				__instance.m_Display.mText = total + "/" + tail;
 				__instance.m_Display.MarkAsChanged();
 
