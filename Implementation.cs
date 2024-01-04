@@ -333,6 +333,8 @@ namespace DrawFromDrawer
                 float missing = deduction - inInventory;
                 if (missing <= 0) return;
 
+				List<GearItem> killList = new List<GearItem>();
+
                 foreach (GearItemObject gio in associatedContainerA.m_Items)
                 {
                     if (missing <= 0) return;
@@ -340,11 +342,15 @@ namespace DrawFromDrawer
                     if (gi.m_PowderItem is null || gi.m_PowderItem.m_Type != type) continue;
                     float numToRemove = Math.Min(missing, gi.m_PowderItem.m_WeightKG);
                     gi.m_PowderItem.m_WeightKG -= numToRemove;
-					if (gi.m_PowderItem.m_WeightKG <= 0) associatedContainerA.DestroyGear(gi);
+					if (gi.m_PowderItem.m_WeightKG <= 0) killList.Add(gi);
                     missing -= numToRemove;
                 }
 
+				foreach (GearItem gi in killList) associatedContainerA.DestroyGear(gi);
+
                 if (associatedContainerB is null) return;
+
+				killList = new List<GearItem>();
 
                 foreach (GearItemObject gio in associatedContainerB.m_Items)
                 {
@@ -353,9 +359,11 @@ namespace DrawFromDrawer
                     if (gi.m_PowderItem is null || gi.m_PowderItem.m_Type != type) continue;
                     float numToRemove = Math.Min(missing, gi.m_PowderItem.m_WeightKG);
                     gi.m_PowderItem.m_WeightKG -= numToRemove;
-                    if (gi.m_PowderItem.m_WeightKG <= 0) associatedContainerB.DestroyGear(gi);
+                    if (gi.m_PowderItem.m_WeightKG <= 0) killList.Add(gi);
                     missing -= numToRemove;
                 }
+
+                foreach (GearItem gi in killList) associatedContainerB.DestroyGear(gi);
             }
         }
     }
