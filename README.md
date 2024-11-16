@@ -10,6 +10,10 @@ Created by yasenfire
 Missing some feathers when crafting arrows? Check in the drawer, maybe there is some. When using a worbench, the contents of its drawer are treated as if it's in the player's inventory. Craft more, craft free, with less micromanagement involved.
 This, however, doesn't extend on tools. Tools still must be in the inventory.
 
+### Update v0.8
+
+- Fixed to support new versions of the game.
+
 ### Update v0.7.1
 
 - Minor fix for powder components.

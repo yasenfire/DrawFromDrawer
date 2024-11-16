@@ -5,6 +5,7 @@ using Il2Cpp;
 using Il2CppInterop;
 using Il2CppInterop.Runtime.Injection;
 using Il2CppTLD.Gear;
+using Il2CppTLD.IntBackedUnit;
 
 namespace DrawFromDrawer
 {
@@ -44,7 +45,7 @@ namespace DrawFromDrawer
                 if (associatedContainerA is null) return;
 				CraftingRequirementQuantitySelect crqs = __instance.m_RequirementContainer.m_QuantitySelect;
 
-				BlueprintData bd = __instance.m_FilteredBlueprints[__instance.m_CurrentBlueprintIndex];
+				BlueprintData bd = __instance.SelectedBPI;
 				List<int> maximums = new List<int>();
 
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
@@ -61,21 +62,21 @@ namespace DrawFromDrawer
 
 				foreach (BlueprintData.RequiredLiquid rl in bd.m_RequiredLiquid)
 				{
-					float inInventory = playerInventory.GetTotalLiquidVolume(rl.m_Liquid);
-					float inContainer = associatedContainerA.GetLiquidItemAmount(rl.m_Liquid);
-					float inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(rl.m_Liquid) : 0;
-					float total = inInventory + inContainer + inContainerB;
-					int maximum = (int)Math.Floor(total / rl.m_VolumeInLitres);
+					ItemLiquidVolume inInventory = playerInventory.GetTotalLiquidVolume(rl.m_Liquid);
+                    ItemLiquidVolume inContainer = associatedContainerA.GetLiquidItemAmount(rl.m_Liquid);
+                    ItemLiquidVolume inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(rl.m_Liquid) : ItemLiquidVolume.Zero;
+					ItemLiquidVolume total = inInventory + inContainer + inContainerB;
+					int maximum = (int)Math.Floor(total / rl.m_Volume);
 					maximums.Add(maximum);
 				}
 
 				foreach (BlueprintData.RequiredPowder rp in bd.m_RequiredPowder)
 				{
-					float inInventory = playerInventory.GetTotalPowderWeight(rp.m_Powder);
-					float inContainer = associatedContainerA.GetPowderItemAmount(rp.m_Powder);
-					float inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(rp.m_Powder) : 0;
-					float total = inInventory + inContainer + inContainerB;
-					int maximum = (int)Math.Floor(total / rp.m_QuantityInKilograms);
+					ItemWeight inInventory = playerInventory.GetTotalPowderWeight(rp.m_Powder);
+					ItemWeight inContainer = associatedContainerA.GetPowderItemAmount(rp.m_Powder);
+					ItemWeight inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(rp.m_Powder) : ItemWeight.Zero;
+					ItemWeight total = inInventory + inContainer + inContainerB;
+					int maximum = (int)Math.Floor(total / rp.m_Quantity);
 					maximums.Add(maximum);
 				}
 
@@ -217,14 +218,14 @@ namespace DrawFromDrawer
                 if (associatedContainerA is null) return;
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
                 BlueprintData.RequiredLiquid rl = bp.m_RequiredLiquid[liquidIndex];
-                float inInventory = playerInventory.GetTotalLiquidVolume(rl.m_Liquid);
-                float inContainer = associatedContainerA.GetLiquidItemAmount(rl.m_Liquid);
-                float inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(rl.m_Liquid) : 0;
-                float total = inInventory + inContainer + inContainerB;
-                float requiredTotal = rl.m_VolumeInLitres * quantity;
+                ItemLiquidVolume inInventory = playerInventory.GetTotalLiquidVolume(rl.m_Liquid);
+                ItemLiquidVolume inContainer = associatedContainerA.GetLiquidItemAmount(rl.m_Liquid);
+                ItemLiquidVolume inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(rl.m_Liquid) : ItemLiquidVolume.Zero;
+                ItemLiquidVolume total = inInventory + inContainer + inContainerB;
+                ItemLiquidVolume requiredTotal = rl.m_Volume * quantity;
 
                 string tail = __instance.m_Display.mText.Split("/")[1];
-                __instance.m_Display.mText = total.ToString("0.00") + "/" + tail;
+                __instance.m_Display.mText = total.ToString() + "/" + tail;
                 __instance.m_Display.MarkAsChanged();
 
                 __instance.ApplyTints(total >= requiredTotal, panel.m_RequirementsNotMetTint);
@@ -239,14 +240,14 @@ namespace DrawFromDrawer
                 if (associatedContainerA is null) return;
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
                 BlueprintData.RequiredPowder rp = bp.m_RequiredPowder[powderIndex];
-                float inInventory = playerInventory.GetTotalPowderWeight(rp.m_Powder);
-                float inContainer = associatedContainerA.GetPowderItemAmount(rp.m_Powder);
-                float inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(rp.m_Powder) : 0;
-                float total = inInventory + inContainer + inContainerB;
-                float requiredTotal = rp.m_QuantityInKilograms * quantity;
+                ItemWeight inInventory = playerInventory.GetTotalPowderWeight(rp.m_Powder);
+                ItemWeight inContainer = associatedContainerA.GetPowderItemAmount(rp.m_Powder);
+                ItemWeight inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(rp.m_Powder) : ItemWeight.Zero;
+                ItemWeight total = inInventory + inContainer + inContainerB;
+                ItemWeight requiredTotal = rp.m_Quantity * quantity;
 
                 string tail = __instance.m_Display.mText.Split("/")[1];
-                __instance.m_Display.mText = total.ToString("0.00") + "/" + tail;
+                __instance.m_Display.mText = total.ToFormattedString() + "/" + tail;
                 __instance.m_Display.MarkAsChanged();
 
                 __instance.ApplyTints(total >= requiredTotal, panel.m_RequirementsNotMetTint);
@@ -256,15 +257,15 @@ namespace DrawFromDrawer
 		[HarmonyPatch(typeof(PlayerManager), nameof(PlayerManager.GetTotalLiters))]
 		internal class PlayerManagerGetTotalLitersPatch
 		{
-			static float Postfix(float result, PlayerManager __instance, LiquidType liquidType)
+			static ItemLiquidVolume Postfix(ItemLiquidVolume result, PlayerManager __instance, LiquidType liquidType)
 			{
 				if (associatedContainerA is null) return result;
 
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
-                float inInventory = playerInventory.GetTotalLiquidVolume(liquidType);
-                float inContainer = associatedContainerA.GetLiquidItemAmount(liquidType);
-                float inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(liquidType) : 0;
-                float total = inInventory + inContainer + inContainerB;
+                ItemLiquidVolume inInventory = playerInventory.GetTotalLiquidVolume(liquidType);
+                ItemLiquidVolume inContainer = associatedContainerA.GetLiquidItemAmount(liquidType);
+                ItemLiquidVolume inContainerB = associatedContainerB is not null ? associatedContainerB.GetLiquidItemAmount(liquidType) : ItemLiquidVolume.Zero;
+                ItemLiquidVolume total = inInventory + inContainer + inContainerB;
 				return total;
             }
 		}
@@ -272,15 +273,15 @@ namespace DrawFromDrawer
         [HarmonyPatch(typeof(PlayerManager), nameof(PlayerManager.GetTotalPowderWeight))]
         internal class PlayerManagerGetTotalPowderWeightPatch
         {
-            static float Postfix(float result, PlayerManager __instance, PowderType type)
+            static ItemWeight Postfix(ItemWeight result, PlayerManager __instance, PowderType type)
             {
                 if (associatedContainerA is null) return result;
 
                 Inventory playerInventory = GameObject.Find("SCRIPT_PlayerSystems").GetComponent<Inventory>();
-                float inInventory = playerInventory.GetTotalPowderWeight(type);
-                float inContainer = associatedContainerA.GetPowderItemAmount(type);
-                float inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(type) : 0;
-                float total = inInventory + inContainer + inContainerB;
+                ItemWeight inInventory = playerInventory.GetTotalPowderWeight(type);
+                ItemWeight inContainer = associatedContainerA.GetPowderItemAmount(type);
+                ItemWeight inContainerB = associatedContainerB is not null ? associatedContainerB.GetPowderItemAmount(type) : ItemWeight.Zero;
+                ItemWeight total = inInventory + inContainer + inContainerB;
                 return total;
             }
         }
@@ -288,22 +289,22 @@ namespace DrawFromDrawer
 		[HarmonyPatch(typeof(PlayerManager), nameof(PlayerManager.DeductLiquidFromInventory))]
 		internal class PlayerManagerDeductLiquidFromInventoryPatch
 		{
-			static void Prefix(PlayerManager __instance, float literDeduction, LiquidType liquidType)
+			static void Prefix(PlayerManager __instance, ItemLiquidVolume literDeduction, LiquidType liquidType)
 			{
 				if (associatedContainerA is null) return;
 
 				Inventory playerInventory = __instance.gameObject.GetComponent<Inventory>();
-				float inInventory = playerInventory.GetTotalLiquidVolume(liquidType);
-				float missing = literDeduction - inInventory;
-				if (missing <= 0) return;
+				ItemLiquidVolume inInventory = playerInventory.GetTotalLiquidVolume(liquidType);
+				ItemLiquidVolume missing = literDeduction - inInventory;
+				if (missing <= ItemLiquidVolume.Zero) return;
 
 				foreach (GearItemObject gio in associatedContainerA.m_Items)
 				{
-					if (missing <= 0) return;
+					if (missing <= ItemLiquidVolume.Zero) return;
 					GearItem gi = gio.m_GearItem;
 					if (gi.m_LiquidItem is null || gi.m_LiquidItem.LiquidType != liquidType) continue;
-					float numToRemove = Math.Min(missing, gi.m_LiquidItem.m_LiquidLiters);
-					gi.m_LiquidItem.m_LiquidLiters -= numToRemove;
+					ItemLiquidVolume numToRemove = missing > gi.m_LiquidItem.m_Liquid ? gi.m_LiquidItem.m_Liquid : missing;
+					gi.m_LiquidItem.m_Liquid -= numToRemove;
 					missing -= numToRemove;
 				}
 
@@ -311,11 +312,11 @@ namespace DrawFromDrawer
 
 				foreach (GearItemObject gio in associatedContainerB.m_Items)
 				{
-					if (missing <= 0) return;
+					if (missing <= ItemLiquidVolume.Zero) return;
 					GearItem gi = gio.m_GearItem;
 					if (gi.m_LiquidItem is null || gi.m_LiquidItem.LiquidType != liquidType) continue;
-					float numToRemove = Math.Min(missing, gi.m_LiquidItem.m_LiquidLiters);
-					gi.m_LiquidItem.m_LiquidLiters -= numToRemove;
+					ItemLiquidVolume numToRemove = missing > gi.m_LiquidItem.m_Liquid ? gi.m_LiquidItem.m_Liquid : missing;
+                    gi.m_LiquidItem.m_Liquid -= numToRemove;
 					missing -= numToRemove;
 				}
 			}
@@ -324,25 +325,25 @@ namespace DrawFromDrawer
         [HarmonyPatch(typeof(PlayerManager), nameof(PlayerManager.DeductPowderFromInventory))]
         internal class PlayerManagerDeductPowderFromInventoryPatch
         {
-            static void Prefix(PlayerManager __instance, float deduction, PowderType type)
+            static void Prefix(PlayerManager __instance, ItemWeight deduction, PowderType type)
             {
                 if (associatedContainerA is null) return;
 
                 Inventory playerInventory = __instance.gameObject.GetComponent<Inventory>();
-                float inInventory = playerInventory.GetTotalPowderWeight(type);
-                float missing = deduction - inInventory;
-                if (missing <= 0) return;
+                ItemWeight inInventory = playerInventory.GetTotalPowderWeight(type);
+                ItemWeight missing = deduction - inInventory;
+                if (missing <= ItemWeight.Zero) return;
 
 				List<GearItem> killList = new List<GearItem>();
 
                 foreach (GearItemObject gio in associatedContainerA.m_Items)
                 {
-                    if (missing <= 0) return;
+                    if (missing <= ItemWeight.Zero) return;
                     GearItem gi = gio.m_GearItem;
                     if (gi.m_PowderItem is null || gi.m_PowderItem.m_Type != type) continue;
-                    float numToRemove = Math.Min(missing, gi.m_PowderItem.m_WeightKG);
-                    gi.m_PowderItem.m_WeightKG -= numToRemove;
-					if (gi.m_PowderItem.m_WeightKG <= 0) killList.Add(gi);
+                    ItemWeight numToRemove = missing >= gi.m_PowderItem.m_Weight ? gi.m_PowderItem.m_Weight : missing;
+                    gi.m_PowderItem.m_Weight -= numToRemove;
+					if (gi.m_PowderItem.m_Weight <= ItemWeight.Zero) killList.Add(gi);
                     missing -= numToRemove;
                 }
 
@@ -354,12 +355,12 @@ namespace DrawFromDrawer
 
                 foreach (GearItemObject gio in associatedContainerB.m_Items)
                 {
-                    if (missing <= 0) return;
+                    if (missing <= ItemWeight.Zero) return;
                     GearItem gi = gio.m_GearItem;
                     if (gi.m_PowderItem is null || gi.m_PowderItem.m_Type != type) continue;
-                    float numToRemove = Math.Min(missing, gi.m_PowderItem.m_WeightKG);
-                    gi.m_PowderItem.m_WeightKG -= numToRemove;
-                    if (gi.m_PowderItem.m_WeightKG <= 0) killList.Add(gi);
+                    ItemWeight numToRemove = missing >= gi.m_PowderItem.m_Weight ? gi.m_PowderItem.m_Weight : missing;
+                    gi.m_PowderItem.m_Weight -= numToRemove;
+                    if (gi.m_PowderItem.m_Weight <= ItemWeight.Zero) killList.Add(gi);
                     missing -= numToRemove;
                 }
 
