@@ -48,11 +48,6 @@
       <PackageReference Include="STBlade.Modding.TLD.Il2CppAssemblies.Windows" Version="2.36.0" />
       <PackageReference Include="System.Text.Json" Version="6.0.11" />
     </ItemGroup>
-    <ItemGroup>
-      <Reference Include="MelonLoader">
-        <HintPath>F:\Spiele\Steam\steamapps\common\TheLongDark\MelonLoader\net6\MelonLoader.dll</HintPath>
-      </Reference>
-    </ItemGroup>
 
     <!--This is the list of assemblies that the mod references. Most of these are unnecessary for normal mods, but are included here for completeness.-->
 </Project>
